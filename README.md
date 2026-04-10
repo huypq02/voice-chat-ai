@@ -90,6 +90,82 @@ FAQ Answer   ┌─────────────────────�
 
 ---
 
+## Project Structure
+
+Clean Architecture with four concentric layers — dependencies only point **inward**.
+
+```
+voice-chat-ai/
+├── src/
+│   │
+│   ├── domain/                          # Layer 1 - Enterprise rules (no external deps)
+│   │   ├── entities/
+│   │   │   ├── message.py               # Conversation / turn entity
+│   │   │   ├── faq_entry.py             # FAQ entry entity
+│   │   │   └── document.py              # Document chunk entity
+│   │   └── ports/                       # Abstract interfaces (dependency inversion)
+│   │       ├── stt_port.py              # STT interface
+│   │       ├── tts_port.py              # TTS interface
+│   │       ├── llm_port.py              # LLM interface
+│   │       ├── embedder_port.py         # Embedding interface
+│   │       └── vector_store_port.py     # Vector store interface
+│   │
+│   ├── application/                     # Layer 2 - Use cases (depends on domain only)
+│   │   ├── use_cases/
+│   │   │   ├── process_voice_query.py   # Main STT→Embed→Retrieve→LLM→TTS orchestration
+│   │   │   └── ingest_documents.py      # Document ingestion pipeline
+│   │   └── services/
+│   │       ├── retrieval_service.py     # Chroma top-k query + threshold check
+│   │       └── rag_service.py           # RAG context assembly + prompt building
+│   │
+│   ├── infrastructure/                  # Layer 3 - Concrete adapters (implements ports)
+│   │   ├── stt/
+│   │   │   └── whisper_stt.py           # Whisper → STTPort
+│   │   ├── tts/
+│   │   │   └── elevenlabs_tts.py        # ElevenLabs → TTSPort
+│   │   ├── llm/
+│   │   │   └── openai_llm.py            # OpenAI → LLMPort
+│   │   ├── embedding/
+│   │   │   └── openai_embedder.py       # OpenAI → EmbedderPort
+│   │   └── vector_store/
+│   │       └── chroma_store.py          # ChromaDB → VectorStorePort
+│   │
+│   └── interfaces/                      # Layer 4 - Delivery (FastAPI, WebSocket)
+│       ├── api/
+│       │   ├── app.py                   # FastAPI app factory + DI wiring
+│       │   └── routes.py                # HTTP / WebSocket endpoints
+│       └── presenters/
+│           └── response.py              # Domain output → API response schema
+│
+├── data/
+│   ├── faqs/
+│   │   └── faqs.json                    # Pre-cached FAQ answers
+│   └── documents/                       # Raw documents for ingestion
+├── chroma_db/                           # Persisted ChromaDB vector store
+├── prompts/
+│   └── rag_system.txt                   # System prompt template for RAG
+├── tests/
+│   ├── unit/
+│   │   ├── domain/
+│   │   ├── application/
+│   │   └── infrastructure/
+│   └── integration/
+├── main.py                              # Entry point
+├── pyproject.toml                       # uv / PEP 517 project config
+└── .env.example                         # Environment variable template
+```
+
+### Dependency Rule
+
+```
+interfaces → application → domain
+infrastructure → domain (implements ports)
+```
+
+Nothing in `domain` or `application` imports from `infrastructure` or `interfaces`. Concrete implementations are injected at startup in `interfaces/api/app.py`.
+
+---
+
 ## Getting Started
 
 ```bash
