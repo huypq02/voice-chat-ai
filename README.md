@@ -202,3 +202,11 @@ uv run python main.py
 ## License
 
 MIT. See `LICENSE`.
+
+---
+
+## Execution Plan
+
+AI-first project plan with phases, sprints, deadlines, quality gates, and KPI targets:
+
+- `docs/ai-first-execution-plan.md`
