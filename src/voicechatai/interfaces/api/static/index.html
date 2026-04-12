@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>STT WebSocket Tester</title>
+    <title>Voice Pipeline Tester</title>
     <style>
         *,
         *::before,
@@ -38,23 +38,23 @@
             border-radius: 20px;
             font-weight: 500;
             background: #21262d;
-            color: #6e7681;
+            color: #c9d1d9;
         }
 
         #status-badge.connected {
             background: #1f4a2f;
-            color: #3fb950;
+            color: #e6edf3;
         }
 
         #status-badge.recording {
             background: #4a1f1f;
-            color: #f85149;
+            color: #e6edf3;
             animation: pulse 1s infinite;
         }
 
         #status-badge.disconnected {
             background: #21262d;
-            color: #6e7681;
+            color: #c9d1d9;
         }
 
         #status-badge.error {
@@ -163,7 +163,7 @@
         button.recording {
             background: #4a1f1f;
             border-color: #f85149;
-            color: #f85149;
+            color: #e6edf3;
         }
 
         button.sm {
@@ -248,6 +248,59 @@
             color: #c9d1d9;
         }
 
+        .decision-box {
+            min-height: 100px;
+            max-height: 240px;
+            overflow-y: auto;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 0.88rem;
+            line-height: 1.55;
+            color: #c9d1d9;
+            white-space: pre-wrap;
+        }
+
+        .preview-box {
+            min-height: 120px;
+            max-height: 220px;
+            overflow-y: auto;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 0.84rem;
+            line-height: 1.5;
+            color: #c9d1d9;
+            white-space: pre-wrap;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .badge.hit {
+            background: #1f4a2f;
+            color: #e6edf3;
+        }
+
+        .badge.clarify {
+            background: #4a3b1f;
+            color: #e3b341;
+        }
+
+        .badge.fallback {
+            background: #4a1f1f;
+            color: #e6edf3;
+        }
+
         #session-id {
             font-family: monospace;
             font-size: 0.78rem;
@@ -259,9 +312,15 @@
 <body>
 
     <h1>
-        STT WebSocket Tester
+        Voice Pipeline Tester
         <span id="status-badge" class="disconnected">● Disconnected</span>
     </h1>
+
+    <div class="panel">
+        <h2>Indexed FAQ Preview</h2>
+        <div id="index-preview" class="preview-box" style="color:#8b949e;font-style:italic;">Indexed FAQ content will
+            appear here after indexing.</div>
+    </div>
 
     <!-- Connection -->
     <div class="panel">
@@ -288,6 +347,22 @@
             <span>Seq: <b id="stat-seq">0</b></span>
             <span>Sample rate: <b id="stat-rate">—</b></span>
         </div>
+    </div>
+
+    <!-- FAQ Routing -->
+    <div class="panel">
+        <h2>FAQ Routing</h2>
+        <div class="row">
+            <button id="btn-index-faq" onclick="indexFaqSamples()">Index FAQ Samples</button>
+            <button class="primary" id="btn-route-turn" onclick="routeLastTurn()" disabled>Route Last Turn</button>
+            <button class="sm" onclick="clearDecision()">Clear Result</button>
+        </div>
+        <div class="stat-row">
+            <span>Indexed rows: <b id="stat-indexed">0</b></span>
+            <span>Last decision: <b id="stat-decision">—</b></span>
+        </div>
+        <div id="decision-box" class="decision-box" style="margin-top: 10px; color:#8b949e; font-style:italic;">Routing
+            results will appear here...</div>
     </div>
 
     <!-- Transcript -->
@@ -321,6 +396,7 @@
         let mediaStream = null;
         let scriptProcessor = null;
         let isRecording = false;
+        let capturedChunks = [];
 
         // ─── WebSocket helpers ───────────────────────────────────────────────────────
         function connect() {
@@ -470,7 +546,9 @@
 
                 const float32 = evt.inputBuffer.getChannelData(0);
                 const int16 = float32ToInt16(float32);
-                const b64 = uint8ToBase64(new Uint8Array(int16.buffer));
+                const bytes = new Uint8Array(int16.buffer.slice(0));
+                const b64 = uint8ToBase64(bytes);
+                capturedChunks.push(bytes);
 
                 const s = ++seq;
                 sendMessage({ type: 'audio_chunk', seq: s, payload: { audio_b64: b64, codec: 'pcm16' } });
@@ -484,6 +562,7 @@
             scriptProcessor.connect(audioContext.destination);
 
             isRecording = true;
+            capturedChunks = [];
             logSys('Recording started.');
             setStatus('recording', '● Recording');
 
@@ -506,6 +585,8 @@
             const btn = document.getElementById('btn-record');
             btn.textContent = '🎙 Start Recording';
             btn.classList.remove('recording');
+
+            document.getElementById('btn-route-turn').disabled = capturedChunks.length === 0;
         }
 
         // ─── PCM helpers ─────────────────────────────────────────────────────────────
@@ -521,7 +602,7 @@
         function uint8ToBase64(bytes) {
             let binary = '';
             const len = bytes.byteLength;
-            for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]);
+            for (let i = 0; i < len; i++) binary += String.fromCodePoint(bytes[i]);
             return btoa(binary);
         }
 
@@ -576,6 +657,10 @@
                 btnPing.disabled = true;
                 btnClose.disabled = true;
             }
+
+            if (disconnected) {
+                document.getElementById('btn-route-turn').disabled = true;
+            }
         }
 
         // ─── Transcript ───────────────────────────────────────────────────────────────
@@ -607,6 +692,10 @@
                 area.appendChild(div);
                 area.scrollTop = area.scrollHeight;
             }
+
+            if (capturedChunks.length > 0) {
+                routeLastTurn();
+            }
         }
 
         function clearTranscript() {
@@ -619,6 +708,155 @@
             if (area.children.length === 1 && area.children[0].tagName === 'DIV' && area.children[0].style.fontStyle === 'italic') {
                 area.innerHTML = '';
             }
+        }
+
+        // ─── FAQ routing helpers ─────────────────────────────────────────────────────
+        async function indexFaqSamples() {
+            const btn = document.getElementById('btn-index-faq');
+            btn.disabled = true;
+            const requestBody = { faq_json_path: 'data/faqs/faqs.json' };
+            try {
+                logOut({ type: 'http_request', path: '/index-faq-samples', method: 'POST', body: requestBody });
+                const response = await fetch('/index-faq-samples', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                const data = await response.json();
+                logIn({ type: 'http_response', path: '/index-faq-samples', status: response.status, body: data });
+                if (data.statuscode !== 200) {
+                    logErr(`Indexing failed: ${data.error || 'unknown error'}`);
+                    return;
+                }
+                document.getElementById('stat-indexed').textContent = String(data.indexed_count || 0);
+                renderIndexPreview(data.preview || []);
+                logSys(`Indexed FAQ samples: ${data.indexed_count}`);
+            } catch (err) {
+                logErr(`Indexing request failed: ${err.message}`);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function routeLastTurn() {
+            if (capturedChunks.length === 0) {
+                logErr('No recorded audio available. Record a turn first.');
+                return;
+            }
+
+            const merged = concatUint8Chunks(capturedChunks);
+            const audioB64 = uint8ToBase64(merged);
+            const requestBody = { audio_bytes_b64: audioB64 };
+
+            const btn = document.getElementById('btn-route-turn');
+            btn.disabled = true;
+            try {
+                logOut({
+                    type: 'http_request',
+                    path: '/transcribe-and-route',
+                    method: 'POST',
+                    body: {
+                        audio_bytes_b64_preview: `${audioB64.slice(0, 64)}...`,
+                        audio_bytes_b64_length: audioB64.length,
+                    }
+                });
+                const response = await fetch('/transcribe-and-route', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                const data = await response.json();
+                logIn({ type: 'http_response', path: '/transcribe-and-route', status: response.status, body: data });
+
+                if (data.statuscode !== 200) {
+                    logErr(`Route failed: ${data.error || 'unknown error'}`);
+                    renderDecisionText(`Route failed: ${data.error || 'unknown error'}`);
+                    return;
+                }
+
+                if (!data.faq_decision) {
+                    renderDecisionText(`Transcript: ${data.transcript || ''}\nRouting unavailable: ${data.error || 'no decision returned'}`);
+                    return;
+                }
+
+                renderFaqDecision(data.transcript || '', data.faq_decision);
+            } catch (err) {
+                logErr(`Route request failed: ${err.message}`);
+                renderDecisionText(`Route request failed: ${err.message}`);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function concatUint8Chunks(chunks) {
+            const total = chunks.reduce((sum, c) => sum + c.length, 0);
+            const merged = new Uint8Array(total);
+            let offset = 0;
+            for (const chunk of chunks) {
+                merged.set(chunk, offset);
+                offset += chunk.length;
+            }
+            return merged;
+        }
+
+        function renderFaqDecision(transcript, decision) {
+            const kind = String(decision.decision || '').toLowerCase();
+            const tagClass = kind === 'hit' || kind === 'clarify' || kind === 'fallback' ? kind : 'fallback';
+            const lines = [
+                `Transcript: ${transcript}`,
+                `Decision: ${kind.toUpperCase()}`,
+                `top1=${Number(decision.top1_score || 0).toFixed(3)}, top2=${Number(decision.top2_score || 0).toFixed(3)}, margin=${Number(decision.margin || 0).toFixed(3)}`,
+                `effective_hit_threshold=${Number(decision.effective_hit_threshold || 0).toFixed(3)}`,
+            ];
+
+            if (decision.answer) {
+                lines.push(`Answer: ${decision.answer}`);
+            }
+
+            if (Array.isArray(decision.clarification_questions) && decision.clarification_questions.length > 0) {
+                lines.push('Clarification options:');
+                decision.clarification_questions.forEach((q, idx) => lines.push(`${idx + 1}. ${q}`));
+            }
+
+            document.getElementById('stat-decision').innerHTML = `<span class="badge ${tagClass}">${kind || 'unknown'}</span>`;
+            renderDecisionText(lines.join('\n'));
+            logSys(`Routing decision: ${kind}`);
+        }
+
+        function renderDecisionText(text) {
+            const box = document.getElementById('decision-box');
+            box.style.fontStyle = 'normal';
+            box.style.color = '#c9d1d9';
+            box.textContent = text;
+        }
+
+        function renderIndexPreview(items) {
+            const box = document.getElementById('index-preview');
+            if (!Array.isArray(items) || items.length === 0) {
+                box.style.color = '#8b949e';
+                box.style.fontStyle = 'italic';
+                box.textContent = 'No indexed FAQ preview available.';
+                return;
+            }
+
+            const lines = items.map(item => {
+                const id = item.id || 'unknown-id';
+                const question = item.question || '';
+                const answer = item.answer || '';
+                return `[${id}]\nQ: ${question}\nA: ${answer}`;
+            });
+
+            box.style.fontStyle = 'normal';
+            box.style.color = '#c9d1d9';
+            box.textContent = lines.join('\n\n');
+        }
+
+        function clearDecision() {
+            document.getElementById('stat-decision').textContent = '—';
+            const box = document.getElementById('decision-box');
+            box.style.color = '#8b949e';
+            box.style.fontStyle = 'italic';
+            box.textContent = 'Routing results will appear here...';
         }
 
         // ─── Events log ──────────────────────────────────────────────────────────────
@@ -646,16 +884,16 @@
         }
 
         function escHtml(str) {
-            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return str.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
         }
 
         // ─── Init ─────────────────────────────────────────────────────────────────────
-        const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        const defaultWsUrl = `${wsScheme}://${window.location.host}/ws/stt`;
+        const wsScheme = globalThis.location.protocol === 'https:' ? 'wss' : 'ws';
+        const defaultWsUrl = `${wsScheme}://${globalThis.location.host}/ws/stt`;
         document.getElementById('ws-url').value = defaultWsUrl;
 
         setButtons({ disconnected: true });
-        logSys('STT WebSocket Tester ready. Click Connect to begin.');
+        logSys('Voice Pipeline Tester ready. Click Connect to begin.');
 
         // Allow pressing Enter in the URL field to connect
         document.getElementById('ws-url').addEventListener('keydown', e => {

@@ -1,7 +1,9 @@
 import base64
 import unittest
 
-from voicechatai.interfaces.api.routes import _decode_audio_chunk_payload, _is_pcm16_silence
+from voicechatai.application.services.rag_service import RAGDecision
+from voicechatai.domain.entities.faq_entry import FAQEntry
+from voicechatai.interfaces.api.routes import _decode_audio_chunk_payload, _is_pcm16_silence, _to_faq_decision_response
 
 
 class WebSocketRouteHelperTests(unittest.TestCase):
@@ -30,6 +32,35 @@ class WebSocketRouteHelperTests(unittest.TestCase):
         audio = sample * 160
 
         self.assertFalse(_is_pcm16_silence(audio))
+
+    def test_to_faq_decision_response_includes_answer_for_clarify(self) -> None:
+        decision = RAGDecision(
+            decision="clarify",
+            top_candidate=FAQEntry(
+                faq_id="faq-1",
+                question="How can I get a refund?",
+                answer="Open Billing and submit a refund request.",
+                score=0.79,
+            ),
+            clarification_candidates=[
+                FAQEntry(
+                    faq_id="faq-1",
+                    question="How can I get a refund?",
+                    answer="Open Billing and submit a refund request.",
+                    score=0.79,
+                )
+            ],
+            top1_score=0.79,
+            top2_score=0.74,
+            margin=0.05,
+            effective_hit_threshold=0.82,
+        )
+
+        response = _to_faq_decision_response(decision)
+
+        self.assertEqual(response.decision, "clarify")
+        self.assertEqual(response.answer, "Open Billing and submit a refund request.")
+        self.assertEqual(response.clarification_questions, ["How can I get a refund?"])
 
 
 if __name__ == "__main__":
