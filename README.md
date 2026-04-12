@@ -176,6 +176,9 @@ cd voice-chat-ai
 # create virtual environment and install dependencies
 uv sync
 
+# install ffmpeg so local Whisper decoding works
+# Windows example: winget install Gyan.FFmpeg
+
 # configure environment
 cp .env.example .env
 # fill in API keys (STT, LLM, TTS, embedding provider)
@@ -188,14 +191,21 @@ uv run python main.py
 
 ## Configuration
 
-| Variable            | Description                                      |
-| ------------------- | ------------------------------------------------ |
-| `STT_PROVIDER`      | STT backend (`whisper`, `deepgram`, …)           |
-| `EMBEDDING_MODEL`   | Embedding model name                             |
-| `CHROMA_COLLECTION` | ChromaDB collection to query                     |
-| `FAQ_THRESHOLD`     | Similarity score τ for FAQ hit (0–1)             |
-| `LLM_MODEL`         | LLM used for RAG generation                      |
-| `TTS_PROVIDER`      | TTS backend (`elevenlabs`, `openai`, `coqui`, …) |
+| Variable               | Description                                           |
+| ---------------------- | ----------------------------------------------------- |
+| `STT_PROVIDER`         | STT backend (`whisper`, `deepgram`, …)                |
+| `WHISPER_MODEL`        | Local Whisper model name (`tiny`, `base`, `small`, …) |
+| `WHISPER_LANGUAGE`     | Optional language hint for Whisper                    |
+| `WHISPER_TASK`         | Whisper mode (`transcribe` or `translate`)            |
+| `WHISPER_FP16`         | Enable fp16 inference when supported                  |
+| `WHISPER_AUDIO_SUFFIX` | Temporary file suffix used for raw audio bytes        |
+| `EMBEDDING_MODEL`      | Embedding model name                                  |
+| `CHROMA_COLLECTION`    | ChromaDB collection to query                          |
+| `FAQ_THRESHOLD`        | Similarity score τ for FAQ hit (0–1)                  |
+| `LLM_MODEL`            | LLM used for RAG generation                           |
+| `TTS_PROVIDER`         | TTS backend (`elevenlabs`, `openai`, `coqui`, …)      |
+
+The STT adapter in `src/voicechatai/infrastructure/stt/whisper_stt.py` now uses the `openai-whisper` package locally. It loads the configured model once at startup, writes incoming audio bytes to a temporary file, and returns the trimmed Whisper transcript through the existing `STTPort` contract.
 
 ---
 
