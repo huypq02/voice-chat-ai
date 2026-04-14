@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from voicechatai.domain.ports.vector_store_port import VectorSearchMatch, VectorStorePort
+from voicechatai.infrastructure.vector_store._store_utils import _build_payload
 
 
 @dataclass(slots=True)
@@ -48,10 +49,7 @@ class ChromaStore(VectorStorePort):
 			distance = float(distances[idx]) if idx < len(distances) else 1.0
 			score = max(0.0, 1.0 - distance)
 
-			payload: dict[str, str] = {str(k): str(v) for k, v in metadata_raw.items()}
-			if "answer" not in payload and doc_text:
-				payload["answer"] = str(doc_text)
-
+			payload = _build_payload(metadata_raw, doc_text)
 			matches.append(VectorSearchMatch(item_id=str(item_id), score=score, payload=payload))
 
 		return matches
