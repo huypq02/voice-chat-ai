@@ -1,1 +1,52 @@
-[]
+[
+	{
+		"id": "faq-kids-001",
+		"question": "Why is the sky blue?",
+		"answer": "Sunlight has many colors. Blue light spreads out the most in the air, so the sky looks blue to our eyes."
+	},
+	{
+		"id": "faq-kids-002",
+		"question": "Why do we need to brush our teeth?",
+		"answer": "Brushing removes tiny bits of food and germs. This helps keep your teeth strong and your mouth healthy."
+	},
+	{
+		"id": "faq-kids-003",
+		"question": "How do plants grow?",
+		"answer": "Plants need sunlight, water, air, and nutrients from soil. They use sunlight to make their own food and grow."
+	},
+	{
+		"id": "faq-kids-004",
+		"question": "What is gravity?",
+		"answer": "Gravity is a force that pulls things toward Earth. That is why a ball falls down when you drop it."
+	},
+	{
+		"id": "faq-kids-005",
+		"question": "Why should we wash our hands?",
+		"answer": "Washing hands with soap removes germs that can make us sick. It is an easy way to protect ourselves and others."
+	},
+	{
+		"id": "faq-kids-006",
+		"question": "How can I be a good friend?",
+		"answer": "Listen, share, be kind, and include others. Saying sorry and helping friends are also important ways to be a good friend."
+	},
+	{
+		"id": "faq-kids-007",
+		"question": "What is the water cycle?",
+		"answer": "Water warms up and turns into vapor, forms clouds, then falls as rain. This cycle repeats again and again."
+	},
+	{
+		"id": "faq-kids-008",
+		"question": "Why is reading every day helpful?",
+		"answer": "Reading helps you learn new words, understand ideas, and imagine new worlds. A little reading each day builds strong skills."
+	},
+	{
+		"id": "faq-kids-009",
+		"question": "How do I stay safe online?",
+		"answer": "Do not share private information like your address or password. Ask a trusted adult if something online feels strange or unsafe."
+	},
+	{
+		"id": "faq-kids-010",
+		"question": "Why do we need sleep?",
+		"answer": "Sleep helps your brain and body rest, grow, and recharge. Good sleep helps you focus, learn, and feel better."
+	}
+]

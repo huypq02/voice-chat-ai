@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voice Pipeline Tester</title>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #e6edf3;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #status-badge {
+            font-size: 0.9rem;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-weight: 500;
+            background: #21262d;
+            color: #c9d1d9;
+        }
+
+        #status-badge.connected {
+            background: #1f4a2f;
+            color: #e6edf3;
+        }
+
+        #status-badge.recording {
+            background: #4a1f1f;
+            color: #e6edf3;
+            animation: pulse 1s infinite;
+        }
+
+        #status-badge.disconnected {
+            background: #21262d;
+            color: #c9d1d9;
+        }
+
+        #status-badge.error {
+            background: #4a261f;
+            color: #f0883e;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .panel {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .panel h2 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #8b949e;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            min-width: 240px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 7px 12px;
+            color: #c9d1d9;
+            font-size: 0.88rem;
+            font-family: 'Consolas', monospace;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: #388bfd;
+        }
+
+        button {
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            cursor: pointer;
+            font-size: 0.85rem;
+            padding: 7px 14px;
+            white-space: nowrap;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #30363d;
+            border-color: #8b949e;
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        button.primary {
+            background: #1f6feb;
+            border-color: #1f6feb;
+            color: #fff;
+        }
+
+        button.primary:hover:not(:disabled) {
+            background: #388bfd;
+        }
+
+        button.danger {
+            background: #da3633;
+            border-color: #da3633;
+            color: #fff;
+        }
+
+        button.danger:hover:not(:disabled) {
+            background: #f85149;
+        }
+
+        button.recording {
+            background: #4a1f1f;
+            border-color: #f85149;
+            color: #e6edf3;
+        }
+
+        button.sm {
+            padding: 3px 8px;
+            font-size: 0.75rem;
+        }
+
+        .transcript-area {
+            min-height: 80px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #e6edf3;
+        }
+
+        .turn {
+            border-left: 2px solid #30363d;
+            padding: 6px 12px;
+            margin-bottom: 6px;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .turn.partial {
+            color: #8b949e;
+            border-left-color: #388bfd;
+            font-style: italic;
+        }
+
+        .turn.final {
+            color: #e6edf3;
+            border-left-color: #3fb950;
+        }
+
+        .turn .ts {
+            font-size: 0.72rem;
+            color: #6e7681;
+            margin-left: 8px;
+        }
+
+        #events-log {
+            max-height: 260px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.78rem;
+            line-height: 1.5;
+            color: #8b949e;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .log-line {
+            border-bottom: 1px solid #21262d;
+            padding: 3px 0;
+        }
+
+        .log-line.in {
+            color: #3fb950;
+        }
+
+        .log-line.out {
+            color: #388bfd;
+        }
+
+        .log-line.err {
+            color: #f85149;
+        }
+
+        .log-line.sys {
+            color: #e3b341;
+        }
+
+        .stat-row {
+            display: flex;
+            gap: 20px;
+            font-size: 0.8rem;
+            color: #8b949e;
+            margin-top: 8px;
+        }
+
+        .stat-row span b {
+            color: #c9d1d9;
+        }
+
+        .decision-box {
+            min-height: 100px;
+            max-height: 240px;
+            overflow-y: auto;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 0.88rem;
+            line-height: 1.55;
+            color: #c9d1d9;
+            white-space: pre-wrap;
+        }
+
+        .preview-box {
+            min-height: 120px;
+            max-height: 220px;
+            overflow-y: auto;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 0.84rem;
+            line-height: 1.5;
+            color: #c9d1d9;
+            white-space: pre-wrap;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .badge.hit {
+            background: #1f4a2f;
+            color: #e6edf3;
+        }
+
+        .badge.clarify {
+            background: #4a3b1f;
+            color: #e3b341;
+        }
+
+        .badge.fallback {
+            background: #4a1f1f;
+            color: #e6edf3;
+        }
+
+        #session-id {
+            font-family: monospace;
+            font-size: 0.78rem;
+            color: #6e7681;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>
+        Voice Pipeline Tester
+        <span id="status-badge" class="disconnected">● Disconnected</span>
+    </h1>
+
+    <div class="panel">
+        <h2>Indexed FAQ Preview</h2>
+        <div id="index-preview" class="preview-box" style="color:#8b949e;font-style:italic;">Indexed FAQ content will
+            appear here after indexing.</div>
+    </div>
+
+    <!-- Connection -->
+    <div class="panel">
+        <h2>Connection</h2>
+        <div class="row">
+            <input type="text" id="ws-url" value="" />
+            <button class="primary" id="btn-connect" onclick="connect()">Connect</button>
+            <button id="btn-disconnect" onclick="disconnect()" disabled>Disconnect</button>
+        </div>
+        <div id="session-id" style="margin-top:8px;"></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="panel">
+        <h2>Controls</h2>
+        <div class="row">
+            <button class="primary" id="btn-record" onclick="toggleRecord()" disabled>🎙 Start Recording</button>
+            <button id="btn-turn-end" onclick="sendTurnEnd()" disabled>Turn End</button>
+            <button id="btn-ping" onclick="sendPing()" disabled>Ping</button>
+            <button class="danger" id="btn-close-ws" onclick="sendClose()" disabled>Close Session</button>
+        </div>
+        <div class="stat-row">
+            <span>Chunks sent: <b id="stat-chunks">0</b></span>
+            <span>Seq: <b id="stat-seq">0</b></span>
+            <span>Sample rate: <b id="stat-rate">—</b></span>
+        </div>
+    </div>
+
+    <!-- FAQ Routing -->
+    <div class="panel">
+        <h2>FAQ Routing</h2>
+        <div class="row">
+            <button id="btn-index-faq" onclick="indexFaqSamples()">Index FAQ Samples</button>
+            <button class="primary" id="btn-route-turn" onclick="routeLastTurn()" disabled>Route Last Turn</button>
+            <button class="sm" onclick="clearDecision()">Clear Result</button>
+        </div>
+        <div class="stat-row">
+            <span>Indexed rows: <b id="stat-indexed">0</b></span>
+            <span>Last decision: <b id="stat-decision">—</b></span>
+        </div>
+        <div id="decision-box" class="decision-box" style="margin-top: 10px; color:#8b949e; font-style:italic;">Routing
+            results will appear here...</div>
+    </div>
+
+    <!-- Transcript -->
+    <div class="panel">
+        <h2>
+            Transcript
+            <button class="sm" onclick="clearTranscript()">Clear</button>
+        </h2>
+        <div class="transcript-area" id="transcript-area">
+            <div style="color:#6e7681;font-style:italic;">Transcripts will appear here…</div>
+        </div>
+    </div>
+
+    <!-- Events log -->
+    <div class="panel">
+        <h2>
+            Events Log
+            <button class="sm" onclick="clearLog()">Clear</button>
+        </h2>
+        <div id="events-log"></div>
+    </div>
+
+    <script>
+        // ─── State ──────────────────────────────────────────────────────────────────
+        let ws = null;
+        let seq = 0;
+        let sessionId = null;
+        let chunkCount = 0;
+
+        let audioContext = null;
+        let mediaStream = null;
+        let scriptProcessor = null;
+        let isRecording = false;
+        let capturedChunks = [];
+
+        // ─── WebSocket helpers ───────────────────────────────────────────────────────
+        function connect() {
+            const url = document.getElementById('ws-url').value.trim();
+            if (!url) return;
+
+            logSys(`Connecting to ${url} …`);
+            try {
+                ws = new WebSocket(url);
+            } catch (err) {
+                logErr(`WebSocket init failed: ${err.message}`);
+                return;
+            }
+
+            setButtons({ connecting: true });
+
+            ws.onopen = () => {
+                logSys('WebSocket open (waiting for "connected" event)');
+            };
+
+            ws.onmessage = (evt) => {
+                let msg;
+                try { msg = JSON.parse(evt.data); } catch { logErr(`Non-JSON message: ${evt.data}`); return; }
+                handleServerMessage(msg);
+            };
+
+            ws.onclose = (evt) => {
+                logSys(`WebSocket closed — code=${evt.code} reason="${evt.reason}"`);
+                onDisconnected();
+            };
+
+            ws.onerror = () => {
+                logErr('WebSocket error');
+                setStatus('error', '● Error');
+            };
+        }
+
+        function disconnect() {
+            if (ws && ws.readyState === WebSocket.OPEN) ws.close(1000);
+            else onDisconnected();
+        }
+
+        function sendMessage(msg) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                logErr('Cannot send — not connected.');
+                return;
+            }
+            ws.send(JSON.stringify(msg));
+        }
+
+        function sendPing() {
+            const s = ++seq;
+            logOut({ type: 'ping', seq: s });
+            sendMessage({ type: 'ping', seq: s });
+        }
+
+        function sendTurnEnd() {
+            const s = ++seq;
+            logOut({ type: 'turn_end', seq: s });
+            sendMessage({ type: 'turn_end', seq: s });
+        }
+
+        function sendClose() {
+            const s = ++seq;
+            logOut({ type: 'close', seq: s });
+            sendMessage({ type: 'close', seq: s });
+        }
+
+        // ─── Incoming message handler ────────────────────────────────────────────────
+        function handleServerMessage(msg) {
+            logIn(msg);
+
+            switch (msg.type) {
+                case 'connected':
+                    sessionId = msg.session_id;
+                    document.getElementById('session-id').textContent = `session_id: ${sessionId}`;
+                    setStatus('connected', '● Connected');
+                    setButtons({ connected: true });
+                    break;
+
+                case 'pong':
+                    // already logged
+                    break;
+
+                case 'partial_transcript': {
+                    const text = msg.payload?.text ?? '';
+                    if (text) upsertPartialTranscript(msg.session_id, text);
+                    break;
+                }
+
+                case 'final_transcript': {
+                    const text = msg.payload?.text ?? '';
+                    finalizeTranscript(text);
+                    break;
+                }
+
+                case 'error':
+                    logErr(`Server error [${msg.payload?.code}]: ${msg.payload?.message} (retryable=${msg.payload?.retryable})`);
+                    setStatus('error', `● Error: ${msg.payload?.code}`);
+                    break;
+
+                default:
+                // unknown type — already logged
+            }
+        }
+
+        // ─── Audio recording ─────────────────────────────────────────────────────────
+        async function toggleRecord() {
+            if (isRecording) {
+                await stopRecording();
+            } else {
+                await startRecording();
+            }
+        }
+
+        async function startRecording() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                logErr('Connect first before recording.');
+                return;
+            }
+
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { channelCount: 1, sampleRate: 16000 },
+                });
+            } catch (err) {
+                logErr(`Microphone access denied: ${err.message}`);
+                return;
+            }
+
+            // Use 16 kHz if the browser honours it; fall back to whatever was granted.
+            const targetRate = 16000;
+            audioContext = new AudioContext({ sampleRate: targetRate });
+            const actualRate = audioContext.sampleRate;
+            document.getElementById('stat-rate').textContent = `${actualRate} Hz`;
+
+            if (actualRate !== targetRate) {
+                logSys(`⚠️ Browser sample rate is ${actualRate} Hz (requested ${targetRate} Hz). Transcription quality may vary.`);
+            }
+
+            const source = audioContext.createMediaStreamSource(mediaStream);
+            // 4096-sample frames → ~256 ms at 16 kHz
+            scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+
+            scriptProcessor.onaudioprocess = (evt) => {
+                if (!isRecording || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+                const float32 = evt.inputBuffer.getChannelData(0);
+                const int16 = float32ToInt16(float32);
+                const bytes = new Uint8Array(int16.buffer.slice(0));
+                const b64 = uint8ToBase64(bytes);
+                capturedChunks.push(bytes);
+
+                const s = ++seq;
+                sendMessage({ type: 'audio_chunk', seq: s, payload: { audio_b64: b64, codec: 'pcm16' } });
+                chunkCount++;
+                document.getElementById('stat-chunks').textContent = chunkCount;
+                document.getElementById('stat-seq').textContent = s;
+            };
+
+            source.connect(scriptProcessor);
+            // Connect to destination to keep the graph alive (no audible output — zero gain output)
+            scriptProcessor.connect(audioContext.destination);
+
+            isRecording = true;
+            capturedChunks = [];
+            logSys('Recording started.');
+            setStatus('recording', '● Recording');
+
+            const btn = document.getElementById('btn-record');
+            btn.textContent = '⏹ Stop Recording';
+            btn.classList.add('recording');
+            document.getElementById('btn-turn-end').disabled = false;
+        }
+
+        async function stopRecording() {
+            isRecording = false;
+
+            if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor = null; }
+            if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+            if (audioContext) { await audioContext.close(); audioContext = null; }
+
+            logSys('Recording stopped.');
+            setStatus('connected', '● Connected');
+
+            const btn = document.getElementById('btn-record');
+            btn.textContent = '🎙 Start Recording';
+            btn.classList.remove('recording');
+
+            document.getElementById('btn-route-turn').disabled = capturedChunks.length === 0;
+        }
+
+        // ─── PCM helpers ─────────────────────────────────────────────────────────────
+        function float32ToInt16(float32) {
+            const int16 = new Int16Array(float32.length);
+            for (let i = 0; i < float32.length; i++) {
+                const s = Math.max(-1, Math.min(1, float32[i]));
+                int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            return int16;
+        }
+
+        function uint8ToBase64(bytes) {
+            let binary = '';
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) binary += String.fromCodePoint(bytes[i]);
+            return btoa(binary);
+        }
+
+        // ─── UI helpers ──────────────────────────────────────────────────────────────
+        function onDisconnected() {
+            if (isRecording) stopRecording();
+            sessionId = null;
+            seq = 0;
+            chunkCount = 0;
+            document.getElementById('session-id').textContent = '';
+            document.getElementById('stat-chunks').textContent = '0';
+            document.getElementById('stat-seq').textContent = '0';
+            document.getElementById('stat-rate').textContent = '—';
+            setStatus('disconnected', '● Disconnected');
+            setButtons({ disconnected: true });
+        }
+
+        function setStatus(cls, text) {
+            const el = document.getElementById('status-badge');
+            el.className = cls;
+            el.textContent = text;
+        }
+
+        function setButtons({ connecting, connected, disconnected } = {}) {
+            const btnConnect = document.getElementById('btn-connect');
+            const btnDisconnect = document.getElementById('btn-disconnect');
+            const btnRecord = document.getElementById('btn-record');
+            const btnTurnEnd = document.getElementById('btn-turn-end');
+            const btnPing = document.getElementById('btn-ping');
+            const btnClose = document.getElementById('btn-close-ws');
+
+            if (connecting) {
+                btnConnect.disabled = true;
+                btnDisconnect.disabled = false;
+                btnRecord.disabled = true;
+                btnTurnEnd.disabled = true;
+                btnPing.disabled = true;
+                btnClose.disabled = true;
+            } else if (connected) {
+                btnConnect.disabled = true;
+                btnDisconnect.disabled = false;
+                btnRecord.disabled = false;
+                btnTurnEnd.disabled = true;  // enabled only while recording
+                btnPing.disabled = false;
+                btnClose.disabled = false;
+            } else {
+                // disconnected
+                btnConnect.disabled = false;
+                btnDisconnect.disabled = true;
+                btnRecord.disabled = true;
+                btnTurnEnd.disabled = true;
+                btnPing.disabled = true;
+                btnClose.disabled = true;
+            }
+
+            if (disconnected) {
+                document.getElementById('btn-route-turn').disabled = true;
+            }
+        }
+
+        // ─── Transcript ───────────────────────────────────────────────────────────────
+        let partialEl = null;
+
+        function upsertPartialTranscript(sid, text) {
+            const area = document.getElementById('transcript-area');
+            clearPlaceholder(area);
+
+            if (!partialEl) {
+                partialEl = document.createElement('div');
+                partialEl.className = 'turn partial';
+                area.appendChild(partialEl);
+            }
+            partialEl.innerHTML = `${escHtml(text)} <span class="ts">${now()}</span>`;
+            area.scrollTop = area.scrollHeight;
+        }
+
+        function finalizeTranscript(text) {
+            const area = document.getElementById('transcript-area');
+            clearPlaceholder(area);
+
+            if (partialEl) { partialEl.remove(); partialEl = null; }
+
+            if (text) {
+                const div = document.createElement('div');
+                div.className = 'turn final';
+                div.innerHTML = `${escHtml(text)} <span class="ts">${now()}</span>`;
+                area.appendChild(div);
+                area.scrollTop = area.scrollHeight;
+            }
+
+            if (capturedChunks.length > 0) {
+                routeLastTurn();
+            }
+        }
+
+        function clearTranscript() {
+            partialEl = null;
+            document.getElementById('transcript-area').innerHTML =
+                '<div style="color:#6e7681;font-style:italic;">Transcripts will appear here…</div>';
+        }
+
+        function clearPlaceholder(area) {
+            if (area.children.length === 1 && area.children[0].tagName === 'DIV' && area.children[0].style.fontStyle === 'italic') {
+                area.innerHTML = '';
+            }
+        }
+
+        // ─── FAQ routing helpers ─────────────────────────────────────────────────────
+        async function indexFaqSamples() {
+            const btn = document.getElementById('btn-index-faq');
+            btn.disabled = true;
+            const requestBody = { faq_json_path: 'data/faqs/faqs.json' };
+            try {
+                logOut({ type: 'http_request', path: '/index-faq-samples', method: 'POST', body: requestBody });
+                const response = await fetch('/index-faq-samples', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                const data = await response.json();
+                logIn({ type: 'http_response', path: '/index-faq-samples', status: response.status, body: data });
+                if (data.statuscode !== 200) {
+                    logErr(`Indexing failed: ${data.error || 'unknown error'}`);
+                    return;
+                }
+                document.getElementById('stat-indexed').textContent = String(data.indexed_count || 0);
+                renderIndexPreview(data.preview || []);
+                logSys(`Indexed FAQ samples: ${data.indexed_count}`);
+            } catch (err) {
+                logErr(`Indexing request failed: ${err.message}`);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function routeLastTurn() {
+            if (capturedChunks.length === 0) {
+                logErr('No recorded audio available. Record a turn first.');
+                return;
+            }
+
+            const merged = concatUint8Chunks(capturedChunks);
+            const audioB64 = uint8ToBase64(merged);
+            const requestBody = { audio_bytes_b64: audioB64 };
+
+            const btn = document.getElementById('btn-route-turn');
+            btn.disabled = true;
+            try {
+                logOut({
+                    type: 'http_request',
+                    path: '/transcribe-and-route',
+                    method: 'POST',
+                    body: {
+                        audio_bytes_b64_preview: `${audioB64.slice(0, 64)}...`,
+                        audio_bytes_b64_length: audioB64.length,
+                    }
+                });
+                const response = await fetch('/transcribe-and-route', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                const data = await response.json();
+                logIn({ type: 'http_response', path: '/transcribe-and-route', status: response.status, body: data });
+
+                if (data.statuscode !== 200) {
+                    logErr(`Route failed: ${data.error || 'unknown error'}`);
+                    renderDecisionText(`Route failed: ${data.error || 'unknown error'}`);
+                    return;
+                }
+
+                if (!data.faq_decision) {
+                    renderDecisionText(`Transcript: ${data.transcript || ''}\nRouting unavailable: ${data.error || 'no decision returned'}`);
+                    return;
+                }
+
+                renderFaqDecision(data.transcript || '', data.faq_decision);
+            } catch (err) {
+                logErr(`Route request failed: ${err.message}`);
+                renderDecisionText(`Route request failed: ${err.message}`);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function concatUint8Chunks(chunks) {
+            const total = chunks.reduce((sum, c) => sum + c.length, 0);
+            const merged = new Uint8Array(total);
+            let offset = 0;
+            for (const chunk of chunks) {
+                merged.set(chunk, offset);
+                offset += chunk.length;
+            }
+            return merged;
+        }
+
+        function renderFaqDecision(transcript, decision) {
+            const kind = String(decision.decision || '').toLowerCase();
+            const tagClass = kind === 'hit' || kind === 'clarify' || kind === 'fallback' ? kind : 'fallback';
+            const lines = [
+                `Transcript: ${transcript}`,
+                `Decision: ${kind.toUpperCase()}`,
+                `top1=${Number(decision.top1_score || 0).toFixed(3)}, top2=${Number(decision.top2_score || 0).toFixed(3)}, margin=${Number(decision.margin || 0).toFixed(3)}`,
+                `effective_hit_threshold=${Number(decision.effective_hit_threshold || 0).toFixed(3)}`,
+            ];
+
+            if (decision.answer) {
+                lines.push(`Answer: ${decision.answer}`);
+            }
+
+            if (Array.isArray(decision.clarification_questions) && decision.clarification_questions.length > 0) {
+                lines.push('Clarification options:');
+                decision.clarification_questions.forEach((q, idx) => lines.push(`${idx + 1}. ${q}`));
+            }
+
+            document.getElementById('stat-decision').innerHTML = `<span class="badge ${tagClass}">${kind || 'unknown'}</span>`;
+            renderDecisionText(lines.join('\n'));
+            logSys(`Routing decision: ${kind}`);
+        }
+
+        function renderDecisionText(text) {
+            const box = document.getElementById('decision-box');
+            box.style.fontStyle = 'normal';
+            box.style.color = '#c9d1d9';
+            box.textContent = text;
+        }
+
+        function renderIndexPreview(items) {
+            const box = document.getElementById('index-preview');
+            if (!Array.isArray(items) || items.length === 0) {
+                box.style.color = '#8b949e';
+                box.style.fontStyle = 'italic';
+                box.textContent = 'No indexed FAQ preview available.';
+                return;
+            }
+
+            const lines = items.map(item => {
+                const id = item.id || 'unknown-id';
+                const question = item.question || '';
+                const answer = item.answer || '';
+                return `[${id}]\nQ: ${question}\nA: ${answer}`;
+            });
+
+            box.style.fontStyle = 'normal';
+            box.style.color = '#c9d1d9';
+            box.textContent = lines.join('\n\n');
+        }
+
+        function clearDecision() {
+            document.getElementById('stat-decision').textContent = '—';
+            const box = document.getElementById('decision-box');
+            box.style.color = '#8b949e';
+            box.style.fontStyle = 'italic';
+            box.textContent = 'Routing results will appear here...';
+        }
+
+        // ─── Events log ──────────────────────────────────────────────────────────────
+        function logIn(msg) { appendLog('in', `← ${JSON.stringify(msg)}`); }
+        function logOut(msg) { appendLog('out', `→ ${JSON.stringify(msg)}`); }
+        function logErr(msg) { appendLog('err', `✗ ${msg}`); }
+        function logSys(msg) { appendLog('sys', `· ${msg}`); }
+
+        function appendLog(cls, text) {
+            const el = document.getElementById('events-log');
+            const line = document.createElement('div');
+            line.className = `log-line ${cls}`;
+            line.textContent = `[${now()}] ${text}`;
+            el.appendChild(line);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('events-log').innerHTML = '';
+        }
+
+        // ─── Utils ────────────────────────────────────────────────────────────────────
+        function now() {
+            return new Date().toISOString().slice(11, 23);
+        }
+
+        function escHtml(str) {
+            return str.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+        }
+
+        // ─── Init ─────────────────────────────────────────────────────────────────────
+        const wsScheme = globalThis.location.protocol === 'https:' ? 'wss' : 'ws';
+        const defaultWsUrl = `${wsScheme}://${globalThis.location.host}/ws/stt`;
+        document.getElementById('ws-url').value = defaultWsUrl;
+
+        setButtons({ disconnected: true });
+        logSys('Voice Pipeline Tester ready. Click Connect to begin.');
+
+        // Allow pressing Enter in the URL field to connect
+        document.getElementById('ws-url').addEventListener('keydown', e => {
+            if (e.key === 'Enter') connect();
+        });
+    </script>
+</body>
+
+</html>
