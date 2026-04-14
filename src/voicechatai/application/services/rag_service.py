@@ -88,6 +88,7 @@ class RAGService:
 
 	@staticmethod
 	def _token_count(text: str) -> int:
-		return len([token for token in text.strip().split() if token])
+		# str.split() with no args already strips whitespace and drops empty tokens.
+		return len(text.split())
 
 

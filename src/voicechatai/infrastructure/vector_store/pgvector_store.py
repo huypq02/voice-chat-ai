@@ -19,12 +19,12 @@ def _validate_identifier(name: str) -> str:
 
 
 def _try_register_vector(conn: Any) -> None:
-    """Register the pgvector type on *conn*; silently skip if the package is unavailable."""
+    """Register the pgvector type on *conn*; silently skip if the package is not installed."""
     try:
         from pgvector.psycopg import register_vector
 
         register_vector(conn)
-    except Exception:  # noqa: BLE001
+    except ImportError:
         pass
 
 
@@ -134,7 +134,7 @@ class PgVectorStore(VectorStorePort):
             cur.executemany(
                 f"""
                 INSERT INTO {self.table_name} (id, document, metadata, embedding)
-                VALUES (%s, %s, %s, %s)
+                VALUES (%s, %s, %s::jsonb, %s)
                 ON CONFLICT (id) DO UPDATE
                 SET document  = EXCLUDED.document,
                     metadata  = EXCLUDED.metadata,
@@ -144,3 +144,8 @@ class PgVectorStore(VectorStorePort):
             )
         self.conn.commit()
         return len(ids)
+
+    def close(self) -> None:
+        """Close the underlying database connection."""
+        if self.conn is not None:
+            self.conn.close()

@@ -91,7 +91,11 @@ class FAQSampleIndexer:
 			path.write_text(json.dumps(DEFAULT_FAQ_SAMPLES, indent=2), encoding="utf-8")
 			return list(DEFAULT_FAQ_SAMPLES)
 
-		data = json.loads(content)
+		try:
+			data = json.loads(content)
+		except json.JSONDecodeError as exc:
+			raise ValueError(f"FAQ file contains invalid JSON: {exc}") from exc
+
 		if not isinstance(data, list) or not data:
 			path.write_text(json.dumps(DEFAULT_FAQ_SAMPLES, indent=2), encoding="utf-8")
 			return list(DEFAULT_FAQ_SAMPLES)

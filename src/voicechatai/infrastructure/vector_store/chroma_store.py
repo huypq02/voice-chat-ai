@@ -71,5 +71,3 @@ class ChromaStore(VectorStorePort):
 			embeddings=embeddings,
 		)
 		return len(ids)
-
-
