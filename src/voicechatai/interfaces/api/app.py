@@ -9,7 +9,7 @@ from voicechatai.application.use_cases.ingest_documents import FAQSampleIndexer
 from voicechatai.application.use_cases.process_voice_chat import ProcessVoiceChat
 from voicechatai.application.use_cases.process_voice_query import ProcessVoiceQuery
 from voicechatai.domain.ports.stt_port import STTError
-from voicechatai.infrastructure.embedding.minilm_embedder import MiniLMEmbedder
+from voicechatai.infrastructure.embedding.openai_embedder import OpenAIEmbedder
 from voicechatai.infrastructure.llm.openai_llm import OpenAILLM
 from voicechatai.infrastructure.stt.whisper_stt import WhisperSTT
 from voicechatai.infrastructure.tts.elevenlabs_tts import ElevenLabsTTS
@@ -43,7 +43,7 @@ def create_app() -> FastAPI:
 
 	# Retrieval stack (embedding + vector store + RAG service).
 	try:
-		embedder = MiniLMEmbedder()
+		embedder = OpenAIEmbedder()
 		vector_store = ChromaStore()
 		retrieval_service = RetrievalService(embedder=embedder, vector_store=vector_store)
 		rag_service = RAGService(retrieval_service=retrieval_service)
