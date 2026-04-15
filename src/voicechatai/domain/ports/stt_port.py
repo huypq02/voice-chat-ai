@@ -17,5 +17,3 @@ class STTPort(ABC):
 	@abstractmethod
 	def transcribe(self, audio_bytes: bytes) -> str:
 		"""Convert raw audio bytes into non-empty transcript text."""
-
-

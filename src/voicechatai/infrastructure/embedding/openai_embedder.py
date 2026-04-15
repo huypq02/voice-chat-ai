@@ -37,5 +37,3 @@ class OpenAIEmbedder(EmbedderPort):
 			raise RuntimeError("Embedding provider returned an empty vector.")
 
 		return list(response.data[0].embedding)
-
-

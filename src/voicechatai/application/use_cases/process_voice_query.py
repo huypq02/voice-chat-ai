@@ -23,5 +23,3 @@ class ProcessVoiceQuery:
 			raise STTError("Speech-to-text produced an empty transcript.")
 
 		return transcript
-
-
