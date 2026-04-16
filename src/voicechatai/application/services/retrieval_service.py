@@ -9,8 +9,6 @@ from voicechatai.domain.ports.vector_store_port import VectorStorePort
 
 @dataclass(slots=True)
 class RetrievalService:
-	"""Fetches FAQ candidates from vector search for a text query."""
-
 	embedder: EmbedderPort
 	vector_store: VectorStorePort
 	top_k: int = 5

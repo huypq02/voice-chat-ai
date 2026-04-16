@@ -6,8 +6,6 @@ from dataclasses import dataclass, field
 
 @dataclass(slots=True)
 class VectorSearchMatch:
-	"""Single vector search result from the backing store."""
-
 	item_id: str
 	score: float
 	payload: dict[str, str] = field(default_factory=dict)
@@ -18,7 +16,6 @@ class VectorStorePort(ABC):
 
 	@abstractmethod
 	def query(self, vector: list[float], top_k: int) -> list[VectorSearchMatch]:
-		"""Return top-k nearest neighbors for an embedding vector."""
 		raise NotImplementedError
 
 	@abstractmethod

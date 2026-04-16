@@ -20,7 +20,6 @@ class LLMAnswerService:
     llm: LLMPort
 
     def generate_answer(self, query: str, top_candidate: FAQEntry | None) -> str:
-        """Use the top retrieved candidate as context and ask the LLM to answer the query."""
         context = self._build_context(top_candidate)
         system_prompt = _SYSTEM_PROMPT.format(context=context)
         return self.llm.generate(system_prompt=system_prompt, user_message=query)
