@@ -14,5 +14,3 @@ class VoiceChatResponse(BaseModel):
 	top1_score: float = 0.0
 	clarification_questions: list[str] = Field(default_factory=list)
 	error: str | None = None
-
-

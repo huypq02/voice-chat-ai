@@ -14,3 +14,4 @@ class STTValidationError(STTError):
 class STTPort(ABC):
 	@abstractmethod
 	def transcribe(self, audio_bytes: bytes) -> str:
+		raise NotImplementedError

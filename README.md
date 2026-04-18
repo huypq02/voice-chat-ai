@@ -39,10 +39,10 @@ User Voice
   HIT          MISS
    │            │
    ▼            ▼
-FAQ Answer   ┌──────────────────────┐
-(cached)     │  RAG + LLM           │  retrieve context → prompt → generate
-             │  (e.g. GPT-4o, LLaMA)│
-             └──────────┬───────────┘
+FAQ Answer   ┌───────────────────────┐
+(cached)     │  RAG + LLM            │  retrieve context → prompt → generate
+             │  (e.g. GPT-4o, Gemini)│
+             └──────────┬────────────┘
    │                    │
    └─────────┬──────────┘
              │
@@ -51,7 +51,7 @@ FAQ Answer   ┌─────────────────────�
              │
              ▼
 ┌──────────────────────┐
-│  TTS                 │  (e.g. ElevenLabs, OpenAI TTS, Coqui)
+│  TTS                 │  (e.g. ElevenLabs, Gemini TTS, OpenAI TTS, Coqui)
 │  Text → Audio        │
 └──────────┬───────────┘
            │

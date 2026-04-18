@@ -28,5 +28,3 @@ class VectorStorePort(ABC):
 	) -> int:
 		"""Insert or update vectorized records and return number of indexed rows."""
 		raise NotImplementedError
-
-

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI
 
 from voicechatai.application.services.llm_answer_service import LLMAnswerService
@@ -12,7 +14,7 @@ from voicechatai.infrastructure.llm.openai_llm import OpenAILLM
 from voicechatai.infrastructure.stt.whisper_stt import WhisperSTT
 from voicechatai.infrastructure.tts.elevenlabs_tts import ElevenLabsTTS
 from voicechatai.infrastructure.vector_store.chroma_store import ChromaStore
-from voicechatai.interfaces.api import routes
+from voicechatai.interfaces.api import routes, websocket_routes
 
 
 def create_app() -> FastAPI:
@@ -70,7 +72,12 @@ def create_app() -> FastAPI:
 	app.state.process_voice_chat = process_voice_chat
 	app.state.voice_chat_boot_error = voice_chat_boot_error
 
+	# API keys for per-connection realtime STT adapters (created fresh each WS session).
+	app.state.deepgram_api_key = os.getenv("DEEPGRAM_API_KEY", "")
+	app.state.assemblyai_api_key = os.getenv("ASSEMBLYAI_API_KEY", "")
+
 	routes.register_routes(app)
+	websocket_routes.register_ws_routes(app)
 
 	return app
 
