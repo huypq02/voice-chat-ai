@@ -12,5 +12,4 @@ class LLMPort(ABC):
 
     @abstractmethod
     def generate(self, system_prompt: str, user_message: str) -> str:
-        """Generate a response given a system prompt and user message."""
         raise NotImplementedError

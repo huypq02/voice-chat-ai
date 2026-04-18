@@ -23,8 +23,6 @@ class RAGDecisionPolicy:
 
 @dataclass(slots=True)
 class RAGDecision:
-	"""Result of evaluating a query against FAQ retrieval candidates."""
-
 	decision: DecisionType
 	top_candidate: FAQEntry | None = None
 	clarification_candidates: list[FAQEntry] = field(default_factory=list)
@@ -88,7 +86,6 @@ class RAGService:
 
 	@staticmethod
 	def _token_count(text: str) -> int:
-		# str.split() with no args already strips whitespace and drops empty tokens.
 		return len(text.split())
 
 

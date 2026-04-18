@@ -5,8 +5,6 @@ from dataclasses import dataclass, field
 
 @dataclass(slots=True)
 class FAQEntry:
-	"""Single FAQ candidate returned by retrieval."""
-
 	faq_id: str
 	question: str
 	answer: str

@@ -8,7 +8,4 @@ class EmbedderPort(ABC):
 
 	@abstractmethod
 	def embed_text(self, text: str) -> list[float]:
-		"""Return an embedding vector for the provided text."""
 		raise NotImplementedError
-
-

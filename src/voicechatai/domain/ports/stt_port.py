@@ -12,8 +12,6 @@ class STTValidationError(STTError):
 
 
 class STTPort(ABC):
-	"""Defines the application-facing speech-to-text contract."""
-
 	@abstractmethod
 	def transcribe(self, audio_bytes: bytes) -> str:
-		"""Convert raw audio bytes into non-empty transcript text."""
+		raise NotImplementedError

@@ -1,20 +1,20 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI
 
 from voicechatai.application.services.llm_answer_service import LLMAnswerService
 from voicechatai.application.services.rag_service import RAGService
 from voicechatai.application.services.retrieval_service import RetrievalService
-from voicechatai.application.use_cases.ingest_documents import FAQSampleIndexer
 from voicechatai.application.use_cases.process_voice_chat import ProcessVoiceChat
-from voicechatai.application.use_cases.process_voice_query import ProcessVoiceQuery
 from voicechatai.domain.ports.stt_port import STTError
 from voicechatai.infrastructure.embedding.openai_embedder import OpenAIEmbedder
 from voicechatai.infrastructure.llm.openai_llm import OpenAILLM
 from voicechatai.infrastructure.stt.whisper_stt import WhisperSTT
 from voicechatai.infrastructure.tts.elevenlabs_tts import ElevenLabsTTS
 from voicechatai.infrastructure.vector_store.chroma_store import ChromaStore
-from voicechatai.interfaces.api import routes
+from voicechatai.interfaces.api import routes, websocket_routes
 
 
 def create_app() -> FastAPI:
@@ -26,18 +26,15 @@ def create_app() -> FastAPI:
 	)
 
 	stt_adapter: WhisperSTT | None = None
-	process_voice_query: ProcessVoiceQuery | None = None
 	stt_boot_error: str | None = None
 	rag_service: RAGService | None = None
 	rag_boot_error: str | None = None
-	faq_indexer: FAQSampleIndexer | None = None
 	process_voice_chat: ProcessVoiceChat | None = None
 	voice_chat_boot_error: str | None = None
 
-	# STT adapter — used by both the partial pipeline and the full pipeline.
+	# STT adapter — used by the full pipeline.
 	try:
 		stt_adapter = WhisperSTT()
-		process_voice_query = ProcessVoiceQuery(stt=stt_adapter)
 	except STTError as exc:
 		stt_boot_error = str(exc)
 
@@ -47,7 +44,6 @@ def create_app() -> FastAPI:
 		vector_store = ChromaStore()
 		retrieval_service = RetrievalService(embedder=embedder, vector_store=vector_store)
 		rag_service = RAGService(retrieval_service=retrieval_service)
-		faq_indexer = FAQSampleIndexer(embedder=embedder, vector_store=vector_store)
 	except Exception as exc:  # noqa: BLE001
 		rag_boot_error = str(exc)
 
@@ -71,15 +67,17 @@ def create_app() -> FastAPI:
 	except Exception as exc:  # noqa: BLE001
 		voice_chat_boot_error = str(exc)
 
-	app.state.process_voice_query = process_voice_query
-	app.state.stt_boot_error = stt_boot_error
 	app.state.rag_service = rag_service
 	app.state.rag_boot_error = rag_boot_error
-	app.state.faq_indexer = faq_indexer
 	app.state.process_voice_chat = process_voice_chat
 	app.state.voice_chat_boot_error = voice_chat_boot_error
 
+	# API keys for per-connection realtime STT adapters (created fresh each WS session).
+	app.state.deepgram_api_key = os.getenv("DEEPGRAM_API_KEY", "")
+	app.state.assemblyai_api_key = os.getenv("ASSEMBLYAI_API_KEY", "")
+
 	routes.register_routes(app)
+	websocket_routes.register_ws_routes(app)
 
 	return app
 
