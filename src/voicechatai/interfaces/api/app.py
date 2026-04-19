@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from voicechatai.application.services.llm_answer_service import LLMAnswerService
 from voicechatai.application.services.rag_service import RAGService
@@ -72,12 +74,11 @@ def create_app() -> FastAPI:
 	app.state.process_voice_chat = process_voice_chat
 	app.state.voice_chat_boot_error = voice_chat_boot_error
 
-	# API keys for per-connection realtime STT adapters (created fresh each WS session).
-	app.state.deepgram_api_key = os.getenv("DEEPGRAM_API_KEY", "")
-	app.state.assemblyai_api_key = os.getenv("ASSEMBLYAI_API_KEY", "")
-
 	routes.register_routes(app)
 	websocket_routes.register_ws_routes(app)
+
+	static_dir = Path(__file__).parent / "static"
+	app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
 	return app
 
