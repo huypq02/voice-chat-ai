@@ -1,18 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Voice Pipeline Tester</title>
+    <title>Voice Chat AI</title>
     <style>
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             font-family: 'Segoe UI', system-ui, sans-serif;
@@ -20,8 +13,11 @@
             color: #c9d1d9;
             min-height: 100vh;
             padding: 24px;
+            max-width: 860px;
+            margin: 0 auto;
         }
 
+        /* ── Header ── */
         h1 {
             font-size: 1.4rem;
             font-weight: 600;
@@ -31,49 +27,22 @@
             align-items: center;
             gap: 10px;
         }
-
         #status-badge {
-            font-size: 0.9rem;
+            font-size: 0.82rem;
             padding: 2px 10px;
             border-radius: 20px;
             font-weight: 500;
-            background: #21262d;
-            color: #c9d1d9;
         }
+        #status-badge.disconnected { background: #21262d; color: #6e7681; }
+        #status-badge.connecting   { background: #1f3a4a; color: #388bfd; animation: pulse 1s infinite; }
+        #status-badge.ready        { background: #1f4a2f; color: #3fb950; }
+        #status-badge.recording    { background: #4a1f1f; color: #f85149; animation: pulse 1s infinite; }
+        #status-badge.processing   { background: #1f3a4a; color: #388bfd; animation: pulse 1s infinite; }
+        #status-badge.error        { background: #4a261f; color: #f0883e; }
 
-        #status-badge.connected {
-            background: #1f4a2f;
-            color: #e6edf3;
-        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-        #status-badge.recording {
-            background: #4a1f1f;
-            color: #e6edf3;
-            animation: pulse 1s infinite;
-        }
-
-        #status-badge.disconnected {
-            background: #21262d;
-            color: #c9d1d9;
-        }
-
-        #status-badge.error {
-            background: #4a261f;
-            color: #f0883e;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.5;
-            }
-        }
-
+        /* ── Panel ── */
         .panel {
             background: #161b22;
             border: 1px solid #30363d;
@@ -81,42 +50,70 @@
             padding: 16px;
             margin-bottom: 16px;
         }
-
         .panel h2 {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.08em;
             color: #8b949e;
             margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
 
-        .row {
+        /* ── Pipeline visualizer ── */
+        .pipeline {
             display: flex;
             align-items: center;
-            gap: 8px;
             flex-wrap: wrap;
+            gap: 0;
+            row-gap: 8px;
         }
-
-        input[type="text"] {
-            flex: 1;
-            min-width: 240px;
-            background: #0d1117;
+        .pipe-node {
+            background: #21262d;
             border: 1px solid #30363d;
             border-radius: 6px;
-            padding: 7px 12px;
-            color: #c9d1d9;
-            font-size: 0.88rem;
-            font-family: 'Consolas', monospace;
-            outline: none;
+            padding: 6px 12px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #6e7681;
+            white-space: nowrap;
+            transition: background 0.3s, color 0.3s, border-color 0.3s;
+        }
+        .pipe-node small {
+            display: block;
+            font-weight: 400;
+            font-size: 0.65rem;
+            opacity: 0.75;
+            margin-top: 1px;
+        }
+        .pipe-node.active {
+            background: #1f3a4a;
+            border-color: #388bfd;
+            color: #79c0ff;
+            box-shadow: 0 0 0 1px #388bfd44;
+            animation: pulse 1s infinite;
+        }
+        .pipe-node.done {
+            background: #1f4a2f;
+            border-color: #3fb950;
+            color: #56d364;
+            animation: none;
+        }
+        .pipe-arrow {
+            color: #30363d;
+            padding: 0 6px;
+            user-select: none;
+            font-size: 1rem;
         }
 
-        input[type="text"]:focus {
-            border-color: #388bfd;
+        /* ── Controls ── */
+        .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .mic-timer {
+            font-family: 'Consolas', monospace;
+            font-size: 0.9rem;
+            color: #6e7681;
+            min-width: 42px;
         }
+        .mic-timer.active { color: #f85149; }
 
         button {
             background: #21262d;
@@ -125,549 +122,416 @@
             color: #c9d1d9;
             cursor: pointer;
             font-size: 0.85rem;
-            padding: 7px 14px;
+            padding: 7px 16px;
             white-space: nowrap;
             transition: background 0.15s, border-color 0.15s;
         }
+        button:hover:not(:disabled) { background: #30363d; border-color: #8b949e; }
+        button:disabled { opacity: 0.35; cursor: not-allowed; }
+        button.primary  { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+        button.primary:hover:not(:disabled) { background: #388bfd; }
+        button.rec      { background: #4a1f1f; border-color: #f85149; color: #ffa198; }
+        button.sm       { padding: 3px 8px; font-size: 0.74rem; }
 
-        button:hover:not(:disabled) {
-            background: #30363d;
-            border-color: #8b949e;
-        }
-
-        button:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
-        button.primary {
-            background: #1f6feb;
-            border-color: #1f6feb;
-            color: #fff;
-        }
-
-        button.primary:hover:not(:disabled) {
-            background: #388bfd;
-        }
-
-        button.danger {
-            background: #da3633;
-            border-color: #da3633;
-            color: #fff;
-        }
-
-        button.danger:hover:not(:disabled) {
-            background: #f85149;
-        }
-
-        button.recording {
-            background: #4a1f1f;
-            border-color: #f85149;
-            color: #e6edf3;
-        }
-
-        button.sm {
-            padding: 3px 8px;
-            font-size: 0.75rem;
-        }
-
-        .transcript-area {
-            min-height: 80px;
-            max-height: 200px;
-            overflow-y: auto;
-            font-size: 0.95rem;
-            line-height: 1.6;
-            color: #e6edf3;
-        }
-
-        .turn {
-            border-left: 2px solid #30363d;
-            padding: 6px 12px;
-            margin-bottom: 6px;
-            border-radius: 0 4px 4px 0;
-        }
-
-        .turn.partial {
-            color: #8b949e;
-            border-left-color: #388bfd;
-            font-style: italic;
-        }
-
-        .turn.final {
-            color: #e6edf3;
-            border-left-color: #3fb950;
-        }
-
-        .turn .ts {
-            font-size: 0.72rem;
-            color: #6e7681;
-            margin-left: 8px;
-        }
-
-        #events-log {
-            max-height: 260px;
-            overflow-y: auto;
-            font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 0.78rem;
-            line-height: 1.5;
-            color: #8b949e;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-
-        .log-line {
-            border-bottom: 1px solid #21262d;
-            padding: 3px 0;
-        }
-
-        .log-line.in {
-            color: #3fb950;
-        }
-
-        .log-line.out {
-            color: #388bfd;
-        }
-
-        .log-line.err {
+        /* ── Error ── */
+        .error-msg {
+            background: #2d1414;
+            border: 1px solid #da3633;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 0.85rem;
             color: #f85149;
+            margin-bottom: 16px;
+            display: none;
         }
 
-        .log-line.sys {
-            color: #e3b341;
+        /* ── Result ── */
+        .result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
         }
+        @media (max-width: 580px) { .result-grid { grid-template-columns: 1fr; } }
 
-        .stat-row {
-            display: flex;
-            gap: 20px;
-            font-size: 0.8rem;
-            color: #8b949e;
-            margin-top: 8px;
+        .rbox {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 12px;
         }
-
-        .stat-row span b {
-            color: #c9d1d9;
-        }
-
-        #session-id {
-            font-family: monospace;
-            font-size: 0.78rem;
+        .rbox.span2 { grid-column: 1 / -1; }
+        .rbox label {
+            display: block;
+            font-size: 0.68rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
             color: #6e7681;
+            margin-bottom: 6px;
         }
+        .rbox p { font-size: 0.9rem; color: #e6edf3; line-height: 1.55; min-height: 1.4em; }
+
+        .decision-badge {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 20px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .decision-badge.hit      { background: #1f4a2f; color: #3fb950; }
+        .decision-badge.clarify  { background: #3a2f00; color: #e3b341; }
+        .decision-badge.fallback { background: #1f2a4a; color: #79c0ff; }
+        .decision-badge.none     { background: #21262d; color: #6e7681; }
+
+        .score-wrap { margin-top: 6px; }
+        .score-bg   { background: #21262d; border-radius: 4px; height: 5px; overflow: hidden; }
+        .score-fill { height: 100%; border-radius: 4px; background: #388bfd; transition: width 0.5s ease; }
+        .score-val  { font-family: 'Consolas', monospace; font-size: 0.85rem; color: #c9d1d9; }
+
+        .clarify-list { list-style: none; margin-top: 4px; }
+        .clarify-list li { font-size: 0.87rem; color: #e3b341; padding: 2px 0; }
+        .clarify-list li::before { content: '? '; color: #6e7681; }
+
+        audio { width: 100%; margin-top: 8px; accent-color: #388bfd; }
     </style>
 </head>
-
 <body>
 
     <h1>
-        Voice Pipeline Tester
+        Voice Chat AI
         <span id="status-badge" class="disconnected">● Disconnected</span>
     </h1>
 
-    <!-- Connection -->
+    <!-- Pipeline -->
     <div class="panel">
-        <h2>Connection</h2>
-        <div class="row">
-            <input type="text" id="ws-url" value="" />
-            <button class="primary" id="btn-connect" onclick="connect()">Connect</button>
-            <button id="btn-disconnect" onclick="disconnect()" disabled>Disconnect</button>
+        <h2>Pipeline</h2>
+        <div class="pipeline">
+            <div class="pipe-node" id="step-stt">🎙 STT<small>Speech → Text</small></div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-node" id="step-embed">🔢 Embed<small>Text → Vector</small></div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-node" id="step-vector">🗄 Vector DB<small>Similarity Search</small></div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-node" id="step-rag">🧠 RAG<small>HIT / CLARIFY / MISS</small></div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-node" id="step-tts">🔊 TTS<small>Text → Audio</small></div>
         </div>
-        <div id="session-id" style="margin-top:8px;"></div>
     </div>
 
     <!-- Controls -->
     <div class="panel">
-        <h2>Controls</h2>
-        <div class="row">
+        <h2>Microphone</h2>
+        <div class="controls">
             <button class="primary" id="btn-record" onclick="toggleRecord()" disabled>🎙 Start Recording</button>
-            <button id="btn-turn-end" onclick="sendTurnEnd()" disabled>Turn End</button>
-            <button id="btn-ping" onclick="sendPing()" disabled>Ping</button>
-            <button class="danger" id="btn-close-ws" onclick="sendClose()" disabled>Close Session</button>
-        </div>
-        <div class="stat-row">
-            <span>Chunks sent: <b id="stat-chunks">0</b></span>
-            <span>Seq: <b id="stat-seq">0</b></span>
-            <span>Sample rate: <b id="stat-rate">—</b></span>
+            <button id="btn-reset" class="sm" onclick="resetAll()">Reset</button>
+            <span class="mic-timer" id="mic-timer">0:00</span>
         </div>
     </div>
 
-    <!-- Transcript -->
-    <div class="panel">
-        <h2>
-            Transcript
-            <button class="sm" onclick="clearTranscript()">Clear</button>
-        </h2>
-        <div class="transcript-area" id="transcript-area">
-            <div style="color:#6e7681;font-style:italic;">Transcripts will appear here…</div>
+    <!-- Error -->
+    <div class="error-msg" id="error-msg"></div>
+
+    <!-- Result -->
+    <div class="panel" id="result-panel" style="display:none;">
+        <h2>Result <button class="sm" onclick="resetAll()">Clear</button></h2>
+        <div class="result-grid">
+
+            <div class="rbox">
+                <label>Transcript (STT)</label>
+                <p id="res-transcript">—</p>
+            </div>
+
+            <div class="rbox">
+                <label>RAG Decision</label>
+                <p><span class="decision-badge none" id="res-decision">—</span></p>
+            </div>
+
+            <div class="rbox">
+                <label>Similarity Score</label>
+                <p class="score-val" id="res-score">—</p>
+                <div class="score-wrap">
+                    <div class="score-bg">
+                        <div class="score-fill" id="res-score-bar" style="width:0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rbox" id="res-clarify-box" style="display:none;">
+                <label>Clarification Questions</label>
+                <ul class="clarify-list" id="res-clarify-list"></ul>
+            </div>
+
+            <div class="rbox span2">
+                <label>Answer</label>
+                <p id="res-answer">—</p>
+            </div>
+
+            <div class="rbox span2" id="res-audio-box" style="display:none;">
+                <label>Audio Response (TTS)</label>
+                <audio id="res-audio" controls></audio>
+            </div>
+
         </div>
     </div>
 
-    <!-- Events log -->
-    <div class="panel">
-        <h2>
-            Events Log
-            <button class="sm" onclick="clearLog()">Clear</button>
-        </h2>
-        <div id="events-log"></div>
-    </div>
+<script>
+// ─── WebSocket ────────────────────────────────────────────────────────────────
+let ws = null;
+let audioObjectUrl = null;
 
-    <script>
-        // ─── State ──────────────────────────────────────────────────────────────────
-        let ws = null;
-        let seq = 0;
-        let sessionId = null;
-        let chunkCount = 0;
+function wsConnect() {
+    const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+    const url = `${scheme}://${location.host}/ws/voice-chat`;
+    setStatus('connecting', '● Connecting…');
+    ws = new WebSocket(url);
 
-        let audioContext = null;
-        let mediaStream = null;
-        let scriptProcessor = null;
-        let isRecording = false;
-        let capturedChunks = [];
+    ws.onopen = () => {};
 
-        // ─── WebSocket helpers ───────────────────────────────────────────────────────
-        function connect() {
-            const url = document.getElementById('ws-url').value.trim();
-            if (!url) return;
+    ws.onmessage = (evt) => {
+        let msg;
+        try { msg = JSON.parse(evt.data); } catch { return; }
+        handleServerMsg(msg);
+    };
 
-            logSys(`Connecting to ${url} …`);
-            try {
-                ws = new WebSocket(url);
-            } catch (err) {
-                logErr(`WebSocket init failed: ${err.message}`);
-                return;
-            }
+    ws.onclose = () => {
+        setStatus('disconnected', '● Disconnected');
+        setRecordBtn(false);
+        // auto-reconnect after 2s
+        setTimeout(wsConnect, 2000);
+    };
 
-            setButtons({ connecting: true });
+    ws.onerror = () => setStatus('error', '● Connection error');
+}
 
-            ws.onopen = () => {
-                logSys('WebSocket open (waiting for "connected" event)');
-            };
+function handleServerMsg(msg) {
+    switch (msg.type) {
+        case 'connected':
+            setStatus('ready', '● Ready');
+            setRecordBtn(true);
+            break;
 
-            ws.onmessage = (evt) => {
-                let msg;
-                try { msg = JSON.parse(evt.data); } catch { logErr(`Non-JSON message: ${evt.data}`); return; }
-                handleServerMessage(msg);
-            };
+        case 'processing':
+            setStatus('processing', '● Processing…');
+            animatePipeline();
+            break;
 
-            ws.onclose = (evt) => {
-                logSys(`WebSocket closed — code=${evt.code} reason="${evt.reason}"`);
-                onDisconnected();
-            };
+        case 'result':
+            setPipelineDone();
+            setStatus('ready', '● Ready');
+            renderResult(msg);
+            setRecordBtn(true);
+            break;
 
-            ws.onerror = () => {
-                logErr('WebSocket error');
-                setStatus('error', '● Error');
-            };
-        }
+        case 'error':
+            setPipelineReset();
+            setStatus('error', '● Error');
+            showError(msg.message || 'Unknown error');
+            setRecordBtn(true);
+            break;
+    }
+}
 
-        function disconnect() {
-            if (ws && ws.readyState === WebSocket.OPEN) ws.close(1000);
-            else onDisconnected();
-        }
+// ─── Recording ────────────────────────────────────────────────────────────────
+let audioCtx = null, stream = null, proc = null;
+let recording = false, timerInterval = null, seconds = 0;
 
-        function sendMessage(msg) {
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                logErr('Cannot send — not connected.');
-                return;
-            }
-            ws.send(JSON.stringify(msg));
-        }
+async function toggleRecord() {
+    if (recording) await stopRecording();
+    else await startRecording();
+}
 
-        function sendPing() {
-            const s = ++seq;
-            logOut({ type: 'ping', seq: s });
-            sendMessage({ type: 'ping', seq: s });
-        }
+async function startRecording() {
+    hideError();
+    resetResult();
+    setPipelineReset();
 
-        function sendTurnEnd() {
-            const s = ++seq;
-            logOut({ type: 'turn_end', seq: s });
-            sendMessage({ type: 'turn_end', seq: s });
-        }
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, sampleRate: 16000 } });
+    } catch (err) {
+        showError('Microphone access denied: ' + err.message);
+        return;
+    }
 
-        function sendClose() {
-            const s = ++seq;
-            logOut({ type: 'close', seq: s });
-            sendMessage({ type: 'close', seq: s });
-        }
+    audioCtx = new AudioContext({ sampleRate: 16000 });
+    const src = audioCtx.createMediaStreamSource(stream);
+    proc = audioCtx.createScriptProcessor(4096, 1, 1);
 
-        // ─── Incoming message handler ────────────────────────────────────────────────
-        function handleServerMessage(msg) {
-            logIn(msg);
+    proc.onaudioprocess = (evt) => {
+        if (!recording || ws?.readyState !== WebSocket.OPEN) return;
+        const i16 = float32ToInt16(evt.inputBuffer.getChannelData(0));
+        ws.send(i16.buffer);
+    };
 
-            switch (msg.type) {
-                case 'connected':
-                    sessionId = msg.session_id;
-                    document.getElementById('session-id').textContent = `session_id: ${sessionId}`;
-                    setStatus('connected', '● Connected');
-                    setButtons({ connected: true });
-                    break;
+    src.connect(proc);
+    proc.connect(audioCtx.destination);
 
-                case 'pong':
-                    // already logged
-                    break;
+    recording = true;
+    seconds = 0;
+    timerInterval = setInterval(() => {
+        seconds++;
+        const m = Math.floor(seconds / 60);
+        const s = String(seconds % 60).padStart(2, '0');
+        const t = document.getElementById('mic-timer');
+        t.textContent = `${m}:${s}`;
+        t.classList.add('active');
+    }, 1000);
 
-                case 'partial_transcript': {
-                    const text = msg.payload?.text ?? '';
-                    if (text) upsertPartialTranscript(msg.session_id, text);
-                    break;
-                }
+    setStatus('recording', '● Recording');
+    const btn = document.getElementById('btn-record');
+    btn.textContent = '⏹ Stop & Send';
+    btn.classList.add('rec');
+}
 
-                case 'final_transcript': {
-                    const text = msg.payload?.text ?? '';
-                    finalizeTranscript(text);
-                    break;
-                }
+async function stopRecording() {
+    recording = false;
+    clearInterval(timerInterval);
+    document.getElementById('mic-timer').classList.remove('active');
+    document.getElementById('mic-timer').textContent = '0:00';
 
-                case 'error':
-                    logErr(`Server error [${msg.payload?.code}]: ${msg.payload?.message} (retryable=${msg.payload?.retryable})`);
-                    setStatus('error', `● Error: ${msg.payload?.code}`);
-                    break;
+    if (proc)   { proc.disconnect(); proc = null; }
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    if (audioCtx) { await audioCtx.close(); audioCtx = null; }
 
-                default:
-                // unknown type — already logged
-            }
-        }
+    // Trigger pipeline
+    if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'turn_end' }));
+        document.getElementById('btn-record').disabled = true;
+    }
 
-        // ─── Audio recording ─────────────────────────────────────────────────────────
-        async function toggleRecord() {
-            if (isRecording) {
-                await stopRecording();
-            } else {
-                await startRecording();
-            }
-        }
+    const btn = document.getElementById('btn-record');
+    btn.textContent = '🎙 Start Recording';
+    btn.classList.remove('rec');
+}
 
-        async function startRecording() {
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                logErr('Connect first before recording.');
-                return;
-            }
+// ─── Pipeline visualizer ──────────────────────────────────────────────────────
+const STEPS = ['stt', 'embed', 'vector', 'rag', 'tts'];
+let pipeAnimInterval = null;
 
-            try {
-                mediaStream = await navigator.mediaDevices.getUserMedia({
-                    audio: { channelCount: 1, sampleRate: 16000 },
-                });
-            } catch (err) {
-                logErr(`Microphone access denied: ${err.message}`);
-                return;
-            }
+function animatePipeline() {
+    clearInterval(pipeAnimInterval);
+    STEPS.forEach(s => document.getElementById('step-' + s).className = 'pipe-node');
+    let i = 0;
+    pipeAnimInterval = setInterval(() => {
+        if (i > 0) document.getElementById('step-' + STEPS[i - 1]).classList.add('done');
+        if (i < STEPS.length) document.getElementById('step-' + STEPS[i]).classList.add('active');
+        i++;
+        if (i > STEPS.length) clearInterval(pipeAnimInterval);
+    }, 500);
+}
 
-            // Use 16 kHz if the browser honours it; fall back to whatever was granted.
-            const targetRate = 16000;
-            audioContext = new AudioContext({ sampleRate: targetRate });
-            const actualRate = audioContext.sampleRate;
-            document.getElementById('stat-rate').textContent = `${actualRate} Hz`;
+function setPipelineDone() {
+    clearInterval(pipeAnimInterval);
+    STEPS.forEach(s => {
+        const el = document.getElementById('step-' + s);
+        el.className = 'pipe-node done';
+    });
+}
 
-            if (actualRate !== targetRate) {
-                logSys(`⚠️ Browser sample rate is ${actualRate} Hz (requested ${targetRate} Hz). Transcription quality may vary.`);
-            }
+function setPipelineReset() {
+    clearInterval(pipeAnimInterval);
+    STEPS.forEach(s => document.getElementById('step-' + s).className = 'pipe-node');
+}
 
-            const source = audioContext.createMediaStreamSource(mediaStream);
-            // 4096-sample frames → ~256 ms at 16 kHz
-            scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+// ─── Render result ────────────────────────────────────────────────────────────
+function renderResult(data) {
+    document.getElementById('res-transcript').textContent = data.transcript || '—';
 
-            scriptProcessor.onaudioprocess = (evt) => {
-                if (!isRecording || !ws || ws.readyState !== WebSocket.OPEN) return;
+    const dec = (data.decision || '').toLowerCase();
+    const badge = document.getElementById('res-decision');
+    badge.textContent = dec || '—';
+    badge.className = 'decision-badge ' + (dec || 'none');
 
-                const float32 = evt.inputBuffer.getChannelData(0);
-                const int16 = float32ToInt16(float32);
-                const bytes = new Uint8Array(int16.buffer.slice(0));
-                const b64 = uint8ToBase64(bytes);
-                capturedChunks.push(bytes);
+    const score = data.top1_score ?? 0;
+    document.getElementById('res-score').textContent = score.toFixed(4);
+    const bar = document.getElementById('res-score-bar');
+    bar.style.width = (Math.min(score, 1) * 100) + '%';
+    bar.style.background = score >= 0.76 ? '#3fb950' : score >= 0.65 ? '#e3b341' : '#388bfd';
 
-                const s = ++seq;
-                sendMessage({ type: 'audio_chunk', seq: s, payload: { audio_b64: b64, codec: 'pcm16' } });
-                chunkCount++;
-                document.getElementById('stat-chunks').textContent = chunkCount;
-                document.getElementById('stat-seq').textContent = s;
-            };
+    document.getElementById('res-answer').textContent = data.answer || '—';
 
-            source.connect(scriptProcessor);
-            // Connect to destination to keep the graph alive (no audible output — zero gain output)
-            scriptProcessor.connect(audioContext.destination);
+    const clarifyBox = document.getElementById('res-clarify-box');
+    if (dec === 'clarify' && data.clarification_questions?.length) {
+        document.getElementById('res-clarify-list').innerHTML =
+            data.clarification_questions.map(q => `<li>${escHtml(q)}</li>`).join('');
+        clarifyBox.style.display = 'block';
+    } else {
+        clarifyBox.style.display = 'none';
+    }
 
-            isRecording = true;
-            capturedChunks = [];
-            logSys('Recording started.');
-            setStatus('recording', '● Recording');
+    if (audioObjectUrl) { URL.revokeObjectURL(audioObjectUrl); audioObjectUrl = null; }
+    const audioBox = document.getElementById('res-audio-box');
+    const audioEl  = document.getElementById('res-audio');
+    if (data.audio_b64) {
+        const bytes = base64ToUint8(data.audio_b64);
+        const blob = new Blob([bytes], { type: 'audio/mpeg' });
+        audioObjectUrl = URL.createObjectURL(blob);
+        audioEl.src = audioObjectUrl;
+        audioBox.style.display = 'block';
+        audioEl.play().catch(() => {});
+    } else {
+        audioBox.style.display = 'none';
+    }
 
-            const btn = document.getElementById('btn-record');
-            btn.textContent = '⏹ Stop Recording';
-            btn.classList.add('recording');
-            document.getElementById('btn-turn-end').disabled = false;
-        }
+    document.getElementById('result-panel').style.display = 'block';
+}
 
-        async function stopRecording() {
-            isRecording = false;
+function resetResult() {
+    document.getElementById('result-panel').style.display = 'none';
+    if (audioObjectUrl) { URL.revokeObjectURL(audioObjectUrl); audioObjectUrl = null; }
+}
 
-            if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor = null; }
-            if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
-            if (audioContext) { await audioContext.close(); audioContext = null; }
+function resetAll() {
+    resetResult();
+    hideError();
+    setPipelineReset();
+}
 
-            logSys('Recording stopped.');
-            setStatus('connected', '● Connected');
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+function setStatus(cls, text) {
+    const el = document.getElementById('status-badge');
+    el.className = cls;
+    el.textContent = text;
+}
 
-            const btn = document.getElementById('btn-record');
-            btn.textContent = '🎙 Start Recording';
-            btn.classList.remove('recording');
-        }
+function setRecordBtn(enabled) {
+    document.getElementById('btn-record').disabled = !enabled;
+}
 
-        // ─── PCM helpers ─────────────────────────────────────────────────────────────
-        function float32ToInt16(float32) {
-            const int16 = new Int16Array(float32.length);
-            for (let i = 0; i < float32.length; i++) {
-                const s = Math.max(-1, Math.min(1, float32[i]));
-                int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-            }
-            return int16;
-        }
+function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+}
 
-        function uint8ToBase64(bytes) {
-            let binary = '';
-            const len = bytes.byteLength;
-            for (let i = 0; i < len; i++) binary += String.fromCodePoint(bytes[i]);
-            return btoa(binary);
-        }
+function hideError() {
+    document.getElementById('error-msg').style.display = 'none';
+}
 
-        // ─── UI helpers ──────────────────────────────────────────────────────────────
-        function onDisconnected() {
-            if (isRecording) stopRecording();
-            sessionId = null;
-            seq = 0;
-            chunkCount = 0;
-            document.getElementById('session-id').textContent = '';
-            document.getElementById('stat-chunks').textContent = '0';
-            document.getElementById('stat-seq').textContent = '0';
-            document.getElementById('stat-rate').textContent = '—';
-            setStatus('disconnected', '● Disconnected');
-            setButtons({ disconnected: true });
-        }
+// ─── Audio helpers ────────────────────────────────────────────────────────────
+function float32ToInt16(f32) {
+    const i16 = new Int16Array(f32.length);
+    for (let i = 0; i < f32.length; i++) {
+        const s = Math.max(-1, Math.min(1, f32[i]));
+        i16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return i16;
+}
 
-        function setStatus(cls, text) {
-            const el = document.getElementById('status-badge');
-            el.className = cls;
-            el.textContent = text;
-        }
+function base64ToUint8(b64) {
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return arr;
+}
 
-        function setButtons({ connecting, connected, disconnected } = {}) {
-            const btnConnect = document.getElementById('btn-connect');
-            const btnDisconnect = document.getElementById('btn-disconnect');
-            const btnRecord = document.getElementById('btn-record');
-            const btnTurnEnd = document.getElementById('btn-turn-end');
-            const btnPing = document.getElementById('btn-ping');
-            const btnClose = document.getElementById('btn-close-ws');
+function escHtml(str) {
+    return str.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
 
-            if (connecting) {
-                btnConnect.disabled = true;
-                btnDisconnect.disabled = false;
-                btnRecord.disabled = true;
-                btnTurnEnd.disabled = true;
-                btnPing.disabled = true;
-                btnClose.disabled = true;
-            } else if (connected) {
-                btnConnect.disabled = true;
-                btnDisconnect.disabled = false;
-                btnRecord.disabled = false;
-                btnTurnEnd.disabled = true;  // enabled only while recording
-                btnPing.disabled = false;
-                btnClose.disabled = false;
-            } else {
-                // disconnected
-                btnConnect.disabled = false;
-                btnDisconnect.disabled = true;
-                btnRecord.disabled = true;
-                btnTurnEnd.disabled = true;
-                btnPing.disabled = true;
-                btnClose.disabled = true;
-            }
-
-        }
-
-        // ─── Transcript ───────────────────────────────────────────────────────────────
-        let partialEl = null;
-
-        function upsertPartialTranscript(sid, text) {
-            const area = document.getElementById('transcript-area');
-            clearPlaceholder(area);
-
-            if (!partialEl) {
-                partialEl = document.createElement('div');
-                partialEl.className = 'turn partial';
-                area.appendChild(partialEl);
-            }
-            partialEl.innerHTML = `${escHtml(text)} <span class="ts">${now()}</span>`;
-            area.scrollTop = area.scrollHeight;
-        }
-
-        function finalizeTranscript(text) {
-            const area = document.getElementById('transcript-area');
-            clearPlaceholder(area);
-
-            if (partialEl) { partialEl.remove(); partialEl = null; }
-
-            if (text) {
-                const div = document.createElement('div');
-                div.className = 'turn final';
-                div.innerHTML = `${escHtml(text)} <span class="ts">${now()}</span>`;
-                area.appendChild(div);
-                area.scrollTop = area.scrollHeight;
-            }
-
-        }
-
-        function clearTranscript() {
-            partialEl = null;
-            document.getElementById('transcript-area').innerHTML =
-                '<div style="color:#6e7681;font-style:italic;">Transcripts will appear here…</div>';
-        }
-
-        function clearPlaceholder(area) {
-            if (area.children.length === 1 && area.children[0].tagName === 'DIV' && area.children[0].style.fontStyle === 'italic') {
-                area.innerHTML = '';
-            }
-        }
-
-        // ─── Events log ──────────────────────────────────────────────────────────────
-        function logIn(msg) { appendLog('in', `← ${JSON.stringify(msg)}`); }
-        function logOut(msg) { appendLog('out', `→ ${JSON.stringify(msg)}`); }
-        function logErr(msg) { appendLog('err', `✗ ${msg}`); }
-        function logSys(msg) { appendLog('sys', `· ${msg}`); }
-
-        function appendLog(cls, text) {
-            const el = document.getElementById('events-log');
-            const line = document.createElement('div');
-            line.className = `log-line ${cls}`;
-            line.textContent = `[${now()}] ${text}`;
-            el.appendChild(line);
-            el.scrollTop = el.scrollHeight;
-        }
-
-        function clearLog() {
-            document.getElementById('events-log').innerHTML = '';
-        }
-
-        // ─── Utils ────────────────────────────────────────────────────────────────────
-        function now() {
-            return new Date().toISOString().slice(11, 23);
-        }
-
-        function escHtml(str) {
-            return str.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-        }
-
-        // ─── Init ─────────────────────────────────────────────────────────────────────
-        const wsScheme = globalThis.location.protocol === 'https:' ? 'wss' : 'ws';
-        const defaultWsUrl = `${wsScheme}://${globalThis.location.host}/ws/stt`;
-        document.getElementById('ws-url').value = defaultWsUrl;
-
-        setButtons({ disconnected: true });
-        logSys('Voice Pipeline Tester ready. Click Connect to begin.');
-
-        // Allow pressing Enter in the URL field to connect
-        document.getElementById('ws-url').addEventListener('keydown', e => {
-            if (e.key === 'Enter') connect();
-        });
-    </script>
+// ─── Init ─────────────────────────────────────────────────────────────────────
+wsConnect();
+</script>
 </body>
-
 </html>
