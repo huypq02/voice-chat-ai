@@ -13,24 +13,26 @@ class GeminiEmbedder(EmbedderPort):
 
     model: str = field(default_factory=lambda: os.getenv("GEMINI_EMBEDDING_MODEL", "models/text-embedding-004"))
     api_key: str | None = field(default_factory=lambda: os.getenv("GEMINI_API_KEY"))
-    _genai: Any = field(init=False, repr=False)
+    _client: Any = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         try:
-            import google.generativeai as genai  # type: ignore[import]
+            from google import genai  # type: ignore[import]
         except ImportError as exc:
-            raise RuntimeError("google-generativeai package is required for GeminiEmbedder.") from exc
+            raise RuntimeError("google-genai package is required for GeminiEmbedder.") from exc
 
-        genai.configure(api_key=self.api_key)
-        self._genai = genai
+        if not self.api_key:
+            raise RuntimeError("GEMINI_API_KEY is required for GeminiEmbedder.")
+
+        self._client = genai.Client(api_key=self.api_key)
 
     def embed_text(self, text: str) -> list[float]:
         content = text.strip()
         if not content:
             return []
 
-        result = self._genai.embed_content(model=self.model, content=content)
-        vector: list[float] = result.get("embedding") or []
+        result = self._client.models.embed_content(model=self.model, contents=content)
+        vector: list[float] = result.embeddings[0].values
         if not vector:
             raise RuntimeError("Gemini embedding provider returned an empty vector.")
         return vector

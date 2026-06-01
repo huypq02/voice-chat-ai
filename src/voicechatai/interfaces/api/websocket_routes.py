@@ -8,6 +8,7 @@ import struct
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from voicechatai.application.use_cases.process_voice_chat import ProcessVoiceChat
+from voicechatai.domain.entities.conversation_state import ConversationState
 
 
 def _encode_wav(pcm_bytes: bytes, sample_rate: int = 16000, channels: int = 1, bits: int = 16) -> bytes:
@@ -38,12 +39,14 @@ def register_ws_routes(app: FastAPI) -> None:
           {"type":"turn_end"}   Signals end of speech — triggers pipeline
 
         Protocol (server → client):
-          {"type":"processing"}                     Pipeline started
-          {"type":"result", "transcript":...,       Full pipeline result
+          {"type":"connected"}                          On connect
+          {"type":"processing"}                         Pipeline started
+          {"type":"result", "transcript":...,           Full pipeline result
            "answer":..., "audio_b64":...,
-           "decision":..., "top1_score":...,
-           "clarification_questions":[...]}
-          {"type":"error", "message":...}           On failure
+           "decision":..., "intent":...,
+           "top1_score":..., "clarification_questions":[...]}
+          {"type":"session_end", "answer":...}          On STOP intent
+          {"type":"error", "message":...}               On failure
         """
         await websocket.accept()
 
@@ -56,6 +59,7 @@ def register_ws_routes(app: FastAPI) -> None:
 
         await websocket.send_json({"type": "connected"})
 
+        session_state = ConversationState()
         audio_chunks: list[bytes] = []
 
         try:
@@ -77,30 +81,43 @@ def register_ws_routes(app: FastAPI) -> None:
                         continue
 
                     if payload.get("type") == "turn_end":
-                        if not audio_chunks:
-                            await websocket.send_json({"type": "error", "message": "No audio received."})
-                            continue
-
                         await websocket.send_json({"type": "processing"})
 
-                        wav_bytes = _encode_wav(b"".join(audio_chunks))
+                        # Empty audio chunks = silence turn
+                        if audio_chunks:
+                            wav_bytes = _encode_wav(b"".join(audio_chunks))
+                        else:
+                            wav_bytes = b""
                         audio_chunks = []
 
                         loop = asyncio.get_event_loop()
                         try:
                             result = await loop.run_in_executor(
-                                None, process_voice_chat.execute, wav_bytes
+                                None, process_voice_chat.execute, wav_bytes, session_state
                             )
                         except Exception as exc:
                             await websocket.send_json({"type": "error", "message": str(exc)})
                             continue
 
+                        # STOP: send closing statement and end the session
+                        if result.intent == "STOP":
+                            await websocket.send_json({
+                                "type": "session_end",
+                                "answer": result.answer,
+                                "audio_b64": base64.b64encode(result.audio_bytes).decode(),
+                            })
+                            await websocket.close(code=1000)
+                            return
+
+                        # REPLAY or CONTINUE: send result normally
+                        # Client skips rendering answer text on REPLAY (just plays audio prompt)
                         await websocket.send_json({
                             "type": "result",
                             "transcript": result.transcript,
                             "answer": result.answer,
                             "audio_b64": base64.b64encode(result.audio_bytes).decode(),
                             "decision": result.decision,
+                            "intent": result.intent,
                             "top1_score": result.top1_score,
                             "clarification_questions": result.clarification_questions,
                         })

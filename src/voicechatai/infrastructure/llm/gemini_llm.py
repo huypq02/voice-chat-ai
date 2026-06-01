@@ -13,24 +13,30 @@ class GeminiLLM(LLMPort):
 
     model: str = field(default_factory=lambda: os.getenv("GEMINI_LLM_MODEL", "gemini-1.5-flash"))
     api_key: str | None = field(default_factory=lambda: os.getenv("GEMINI_API_KEY"))
-    _genai: Any = field(init=False, repr=False)
+    _client: Any = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         try:
-            import google.generativeai as genai  # type: ignore[import]
+            from google import genai  # type: ignore[import]
         except ImportError as exc:
-            raise RuntimeError("google-generativeai package is required for GeminiLLM.") from exc
+            raise RuntimeError("google-genai package is required for GeminiLLM.") from exc
 
-        genai.configure(api_key=self.api_key)
-        self._genai = genai
+        if not self.api_key:
+            raise RuntimeError("GEMINI_API_KEY is required for GeminiLLM.")
+
+        self._client = genai.Client(api_key=self.api_key)
 
     def generate(self, system_prompt: str, user_message: str) -> str:
         try:
-            model = self._genai.GenerativeModel(
-                model_name=self.model,
-                system_instruction=system_prompt,
+            from google.genai import types  # type: ignore[import]
+
+            response = self._client.models.generate_content(
+                model=self.model,
+                contents=user_message,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                ),
             )
-            response = model.generate_content(user_message)
             return (response.text or "").strip()
         except Exception as exc:
             raise LLMGenerationError(f"LLM generation failed: {exc}") from exc

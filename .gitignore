@@ -38,6 +38,3 @@ Thumbs.db
 
 # Local vector database data
 chroma_db/
-
-# BMAD generated outputs
-_bmad-output/
